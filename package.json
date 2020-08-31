@@ -1,0 +1,23 @@
+{
+  "name": "snake_ladder",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.17.1",
+    "path": "^0.12.7",
+    "roundround": "^0.2.0",
+    "socket.io": "^2.3.0",
+    "websocket": "^1.0.31",
+    "ws": "^7.3.1"
+  },
+   "engines": {
+    "node": "10.x"
+  }
+}

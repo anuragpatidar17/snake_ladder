@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake and Ladder Game</title>
+
+    <script type="text/javascript"> 
+    	//let ws = new WebSocket("wss://immense-lowlands-09276.herokuapp.com")
+    	 let ws = new WebSocket("ws://localhost:9091")
+</script>
+
+</head>
+<style type="text/css">
+	.box {
+	position: relative;
+	display: inline-block;
+	height: 60px;
+	width: 60px;
+	border: 1px solid #000;
+	vertical-align: top;
+}
+.player {
+	display: inline-block;
+	height: 15px;
+	width: 15px;
+	border-radius: 50px;
+}
+.one {
+	background: #FF0000;
+}
+.two {
+	background: #0000FF;
+}
+.three {
+	background: #008000;
+}
+.snake {
+	
+	background: #FF0033;
+}
+.ladder {
+	background: #13AAF0;
+}
+.little-text {
+	color: #fff;
+	font-size: 12px;
+}
+
+</style>
+<body>
+   <div id="boardContainer"></div>
+		<div class="player-holder">
+			<div id="players_required"></div>
+			<div>
+				 <div id  = 'chance'></div>
+				<span>Dice move:</span>
+				<span class="playerr"></span>
+				<br>
+				<button id='btnPlay' onclick="disable()" disabled="true">Play</button>
+			</div>
+			<br>
+		</div>
+   
+      <button id = 'btnJoin' onclick="hide()">Join</button>
+      
+         <div id  = 'divPlayers'></div>
+
+
+
+
+    <script>
+    	var game_state;
+    	var color;
+    	var playersId=[];
+    	var games_client = {};
+    	var gameId = "xyz";
+    	var index;
+    	var k = 0;        //HTML elements
+       let playerId=null;
+       
+        let playerColor = null;
+        var current_player_index;
+       
+    	
+      let player=[];
+      const btnJoin = document.getElementById("btnJoin");
+      const txtGameId = document.getElementById("txtGameId");
+      const divPlayers = document.getElementById("divPlayers");
+      const btnPlay = document.getElementById("btnPlay");
+
+
+
+      function hide() {
+       var x = document.getElementById("btnJoin");  // to hide the join button
+       x.style.display = "none";
+  } 
+
+   function disable() {
+       document.getElementById("btnPlay").disabled = true;    // to disable the play button after each turn
+       
+  } 
+
+    
+      
+
+        
+        
+// Event Listeners 
+
+     btnJoin.addEventListener("click", e => {  // To join the game
+
+
+     	
+            const payLoad = {
+                "action": "join",
+                "playerId": playerId
+               
+
+            }
+
+            ws.send(JSON.stringify(payLoad));
+
+        })
+
+
+
+     btnPlay.addEventListener("click", e => {  // To play your turn
+
+            
+            var turn = move(playerColor);    // Calling move function to roll the dice and check the position
+            
+            if(turn === 6)
+            {
+            	index = index - 1;          
+            }
+
+              if(pos > 99)                // if player position is greater than 99 , game state change to finished else started.
+       {
+       	    game_state = "finished";
+       } 
+       else{
+       	  game_state = "started";
+       }
+
+
+
+            const payLoad = {
+                "action": "play",
+                "playerId": playerId,
+                "gameId" : gameId,
+                "playerColor": playerColor,
+                "pos" : pos,
+                "index": index,
+                "game_state": game_state
+            }
+
+            ws.send(JSON.stringify(payLoad));
+
+        })
+
+
+
+
+
+         ws.onmessage = message => {
+            //message.data
+            const response = JSON.parse(message.data);
+
+           if(response.action === "connect")   // Receiving Unique Player ID at new connection
+           {
+           	 playerId = response.playerId;
+           	 console.log(" playerId successful -> " + playerId);
+           
+           }
+           
+
+        
+           
+           if (response.action === "join"){       // Listening join from server
+                
+                const game = response.game;       // game state coming from server
+             
+                games_client = {...game};          // copying game state to client side
+
+            console.log("games_client", games_client);
+
+              game_state = response.game_state;
+        
+
+           
+            if(game_state == "Not started")  // Check how many players required to start the game
+            document.getElementById("players_required").innerHTML = response.players_required + " Players are required to start the game"; 
+            else{
+            	 document.getElementById("players_required").innerHTML = "";
+            }
+
+                while(divPlayers.firstChild)
+                    divPlayers.removeChild(divPlayers.firstChild)
+
+
+                for(var j=0;j<game.players.length;j++)  // Showing all players in the game 
+                {
+                	const d = document.createElement("div");
+                    d.style.width = "200px";
+                    d.style.background = game.players[j].color;
+                    d.textContent = "player " + j + " -> " + game.players[j].playerId;
+                    divPlayers.appendChild(d);
+
+                    if (game.players[j].playerId === playerId) 
+                    	playerColor = game.players[j].color;
+                }
+ 
+                generateBoard();  // generating the grid
+              
+
+            }
+
+
+
+
+               if(response.action === "chance")   // One by One , each player button will get enable at their chance.
+           {
+           	   const playerId_server = response.playerId;
+           
+           	    index = response.index;
+
+           	  document.getElementById("chance").innerHTML = "player "+ index + " turn!"; 
+
+                  if(playerId === playerId_server)   
+                  {
+                  	document.getElementById("btnPlay").disabled = false;
+                  }
+           	   
+           }
+
+
+             if (response.action === "play"){
+             	 const game_state = response.game_state;
+             	 const playerColor = response.color;
+             	
+
+             		if(game_state == "finished") 
+             	{
+             		game_end(playerColor);
+             	}
+             	else{
+             	
+                const game = response.game;
+                 games_client = {...game};
+                const playerId = response.playerId;
+              
+                 const pos = response.pos;
+               displayPlayer(playerColor, pos);
+         
+             
+             	
+             	
+
+                const attack = response.attack;  // receiving Attack object in which all the players ID are at same position to the current player and can be killed
+
+
+
+            
+                var attack_length = Object.keys(attack).length;
+               
+
+                if( attack_length !== 0)  // If length is 0 , no players at same position
+                {
+                if(playerId === playerId)  // goes to only player recently reached to that box 
+                {
+
+                	for(var i=0;i<attack_length;i++)
+                	{
+                	var confirm_kill =confirm("You want to kill player " + attack[playerId].color) // confirm to kill the person
+                	{
+                		if(confirm_kill == true)
+                		{
+                			var player_killed_id = attack[playerId].attack_Id;
+                			var player_killed_color = attack[playerId].color;
+
+                			 const payLoad = {
+                              "action": "kill",
+                              "playerId": playerId,
+                              "gameId" : gameId,
+                              "player_killed_id": player_killed_id,
+                              "player_killed_color": player_killed_color
+
+
+                                             }
+                            ws.send(JSON.stringify(payLoad));
+
+
+                		}
+                	}
+                }
+                }
+            }
+}
+
+            } // play end
+
+
+
+
+             if (response.action === "kill"){   // Showing status to all , players killed
+             	const game = response.game;
+
+             	const player_killed_id = response.player_killed_id;
+             	const player_killed_color = response.player_killed_color;
+             	
+              console.log("killed color", player_killed_color);
+              console.log("player obj in kill", player);
+               displayPlayer(player_killed_color, 1);  // reseting the player position to 1 
+
+             
+                games_client = {...game}; // copying the server game state to client 
+
+             	
+
+             
+              
+               
+            }
+
+
+        }
+
+
+
+    var pos = 0;
+
+var boardObj = [];
+
+function generateBoard() {
+	var row = 10;
+	var col = 10;
+	var boxNo = 100;
+	var board = document.getElementById('boardContainer');
+	board.innerHTML = '';
+	var snakes = [16, 6, 53, 33, 63, 59, 86, 23, 92, 72, 94, 74, 98, 77];  // snakes head and tail
+	var ladders = [3, 13, 8, 30, 19, 37, 27, 87, 39, 58, 50, 66, 62, 80, 70, 90]; // ladder head and tail
+	var snakeObj = [];
+	var ladderObj = [];
+	for(var y = 0; y < snakes.length; ++y) {  // snakes head and tail
+		snakeObj.push({
+			head: snakes[y],
+			tail: snakes[++y]
+		})
+	}
+	for(var z = 0; z < ladders.length; ++z) {    // ladders head and tail 
+		ladderObj.push({
+			head: ladders[z],
+			tail: ladders[++z]
+		})
+	}
+
+	for(var x = 0, a = 0, b = 0; x<row*col; x++) {
+		boardObj.push({
+	        number: x,
+	        snakeHead: false,
+	        snakeTail: 0,
+	        ladderHead: false,
+	        ladderTail: 0
+	    });
+
+	    if(snakeObj[a] && x === snakeObj[a].head) { // a 0-6
+
+	    	boardObj[x].snakeHead = true;
+	    	boardObj[x].snakeTail = snakeObj[a].tail;
+	    	a++;
+	    }
+	    if (ladderObj[b] && x === ladderObj[b].head) { //b 0-7
+
+	    	boardObj[x].ladderHead = true;
+	    	boardObj[x].ladderTail = ladderObj[b].tail;
+	    	b++;
+	    }
+	}
+
+	for(var i = 0; i < row; i++) {  // running 10 times
+		if(i%2 !== 0) {
+			
+			for(var j = 9; j >= 0; j--) {
+				
+				if(boardObj[(boxNo-j-1)].snakeHead) {
+					board.innerHTML += "<div class='box snake' id=box"+ (boxNo-j) +">"+ (boxNo-j) +"<p class='little-text'>Snake: Go to "+ boardObj[(boxNo-j-1)].snakeTail +"</p></div>";
+				}
+				else if(boardObj[(boxNo-j-1)].ladderHead) {
+					board.innerHTML += "<div class='box ladder' id=box"+ (boxNo-j) +">"+ (boxNo-j) +"<p class='little-text'>Ladder: Go to "+ boardObj[(boxNo-j-1)].ladderTail +"</p></div>"
+				}
+				else {
+					board.innerHTML += "<div class='box' id=box"+ (boxNo-j) +">"+ (boxNo-j) +"</div>";
+				}
+			}
+		}
+		else {
+
+			for(var k = 0; k < col; k++) {
+         
+				if(boardObj[(boxNo-k-1)].snakeHead) {
+					board.innerHTML += "<div class='box snake' id=box"+ (boxNo-k) +">"+ (boxNo-k) +"<p class='little-text'>Snake: Go to "+ boardObj[(boxNo-k-1)].snakeTail +"</p></div>";
+				}
+				else if(boardObj[(boxNo-k-1)].ladderHead) {
+					board.innerHTML += "<div class='box ladder' id=box"+ (boxNo-k) +">"+ (boxNo-k) +"<p class='little-text'>Ladder: Go to "+ boardObj[(boxNo-k-1)].ladderTail +"</p></div>";
+				}
+				else {
+					board.innerHTML += "<div class='box' id=box"+ (boxNo-k) +">"+ (boxNo-k) +"</div>";
+				}
+			}
+		}
+		boxNo -= 10;
+		board.innerHTML += '<br/>';
+	}
+}
+
+function displayPlayer(Color, boxNo) {
+       
+    
+      if(Color === "red"){
+		var el1 = document.querySelector(".one.on-board");
+		if(el1) {
+			el1.parentNode.removeChild(el1);  // remove old red circle
+		}
+		document.getElementById('box'+boxNo).innerHTML += "<div class='player one on-board'></div>";  // add new red circle
+	}
+	else if(Color === "blue"){
+		var el2 = document.querySelector(".two.on-board");
+		if(el2) {
+			el2.parentNode.removeChild(el2);
+		}
+		document.getElementById('box'+boxNo).innerHTML += "<div class='player two on-board'></div>";
+	}
+	else if(Color === "green") {
+
+			var el3 = document.querySelector(".three.on-board");
+		if(el3) {
+			el3.parentNode.removeChild(el3);
+		}
+		document.getElementById('box'+boxNo).innerHTML += "<div class='player three on-board'></div>";
+
+	}
+                  
+
+		
+	}
+	
+
+function positionCheck(k,playerColor) {
+	
+		if(games_client.players[k].position >= 100) {
+		alert('Player '+(playerColor)+' win');
+		location.reload();
+	}
+
+	if(boardObj[games_client.players[k].position  - 1].snakeHead) {
+		games_client.players[k].position  = boardObj[games_client.players[k].position  - 1].snakeTail;
+	}
+
+	if(boardObj[games_client.players[k].position  - 1].ladderHead) {
+		games_client.players[k].position  = boardObj[games_client.players[k].position  - 1].ladderTail;
+	}	
+	pos = games_client.players[k].position;
+}
+
+function random(){
+	return Math.floor(Math.random() * (6)) + 1;
+}
+
+function move(playerColor) {
+	
+	var dice;
+	dice = random();
+
+  document.querySelector(".playerr").innerHTML = dice;
+
+	if(dice === 6)
+	{
+		alert("You got 6! One more chance");
+	}
+	
+	
+	
+	for(var k=0;k<games_client.players.length;k++)
+	{
+	   if(playerColor == games_client.players[k].color)
+	   {
+	   	games_client.players[k].position += dice;
+	   	current_player_index = k;
+	   	break;
+	   } 
+	
+}
+	
+	
+	positionCheck(current_player_index,playerColor);
+	 
+	 return dice;
+	
+}
+
+function game_end(playerColor){
+
+alert("player "+ playerColor+" won the game.");
+location.reload();
+             	
+             	
+}
+
+
+
+
+
+    </script>
+</body>
+</html>

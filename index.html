@@ -128,7 +128,7 @@
      btnPlay.addEventListener("click", e => {  // To play your turn
 
             
-            var turn = move(playerColor);    // Calling move function to roll the dice and check the position
+            var turn = move(playerColor, positionCheck);    // Calling move function to roll the dice and check the position
             
             if(turn === 6)
             {
@@ -467,7 +467,7 @@ function random(){
 	return Math.floor(Math.random() * (6)) + 1;
 }
 
-function move(playerColor) {
+function move(playerColor, callback) {
 	
 	var dice;
 	dice = random();
@@ -493,7 +493,7 @@ function move(playerColor) {
 }
 	
 	
-	positionCheck(current_player_index,playerColor);
+	callback(current_player_index,playerColor);
 	 
 	 return dice;
 	
